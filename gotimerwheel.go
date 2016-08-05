@@ -14,6 +14,9 @@ var (
 	ScheduledInPast = errors.New("Requested event to be scheduled in the past")
 )
 
+// Events that you wish to be invoked when their time comes. The
+// argument they are provided with is the time argument passed to
+// AdvanceTo (or AdvanceBy plus the current Timer Wheel time).
 type Event func(*time.Time)
 
 type TimerWheel struct {
@@ -33,6 +36,10 @@ type eventNode struct {
 	next eventNodeContainer
 }
 
+// Create a new Timer Wheel. The Timer Wheel considers the current
+// time to be the value of startAt. BucketSize should be chosen so
+// that you normally have no more than around 100 events within a
+// bucketSize-duration.
 func NewTimerWheel(startAt time.Time, bucketSize time.Duration) *TimerWheel {
 	if bucketSize <= 0 {
 		panic("TimerWheel bucket size must be greater than 0")
@@ -45,6 +52,9 @@ func NewTimerWheel(startAt time.Time, bucketSize time.Duration) *TimerWheel {
 	}
 }
 
+// Schedules an event to be invoked at the indicated time. If that
+// time is in the past of the Timer Wheel's current time then the
+// ScheduledInPast error is returned.
 func (tw *TimerWheel) ScheduleEventAt(at time.Time, e Event) error {
 	if !tw.now.Before(at) {
 		return ScheduledInPast
@@ -60,6 +70,8 @@ func (tw *TimerWheel) ScheduleEventAt(at time.Time, e Event) error {
 	return nil
 }
 
+// Schedules an event to be invoked at the current Timer Wheel's time
+// plus the supplied duration.
 func (tw *TimerWheel) ScheduleEventIn(in time.Duration, e Event) error {
 	return tw.ScheduleEventAt(tw.now.Add(in), e)
 }
@@ -71,6 +83,16 @@ func (tw *TimerWheel) addEvent(event *eventNode) {
 	enContainer.addEvent(event)
 }
 
+// Advances the Timer Wheel's current time to the indicated time. Any
+// event scheduled before (or including) the indicated time is
+// invoked. Note that events scheduled at the current time are
+// invoked. E.g. if you schedule an event at 12pm, and then call
+// AdvanceTo with 12pm then the event will be invoked. Limit allows
+// you to control how many events are invoked: set to 0 to allow all
+// necessary events to be invoked. If a positive limit is set then a
+// maximum of limit events are invoked, at which point the Timer
+// Wheel's current time is set to the time of the most recently
+// invoked event. Returns the number of events invoked.
 func (tw *TimerWheel) AdvanceTo(now time.Time, limit int) int {
 	execCount := 0
 	limited := limit > 0
@@ -106,14 +128,19 @@ func (tw *TimerWheel) AdvanceTo(now time.Time, limit int) int {
 	return execCount
 }
 
+// Advances the Timer Wheel's current time by the indicated
+// amount. See AdvanceTo for the semantics of the limit parameter and
+// returned value.
 func (tw *TimerWheel) AdvanceBy(interval time.Duration, limit int) {
 	tw.AdvanceTo(tw.now.Add(interval), limit)
 }
 
+// Returns the Timer Wheel's current time.
 func (tw *TimerWheel) Now() time.Time {
 	return tw.now
 }
 
+// Returns the number of scheduled events in the Timer Wheel.
 func (tw *TimerWheel) Length() int {
 	if tw == nil {
 		return 0
