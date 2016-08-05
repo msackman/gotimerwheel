@@ -62,12 +62,30 @@ func (tw *TimerWheel) ScheduleEventAt(at time.Time, e Event) error {
 	idx := int((at.Sub(tw.start)) / tw.bucketSize)
 	if idx >= ringLength {
 		tw.ensureNext()
-		return tw.next.ScheduleEventAt(at, e)
+		tw.next.scheduleEventAt(at, e)
+	} else {
+		event := &eventNode{at: &at, fun: e}
+		enContainer := &(tw.ring[idx])
+		enContainer.addEvent(event)
 	}
-	event := &eventNode{at: &at, fun: e}
-	enContainer := &(tw.ring[idx])
-	enContainer.addEvent(event)
 	return nil
+}
+
+func (tw *TimerWheel) scheduleEventAt(at time.Time, e Event) {
+	idx := int((at.Sub(tw.start)) / tw.bucketSize)
+	if idx >= ringLength {
+		tw.ensureNext()
+		tw.next.scheduleEventAt(at, e)
+	} else {
+		// We don't care about sorting for non-root timer wheels, so
+		// this gets inserted right at the head, to keep it O(1).
+		enContainer := &(tw.ring[idx])
+		enContainer.eventNode = &eventNode{
+			at:   &at,
+			fun:  e,
+			next: eventNodeContainer{eventNode: enContainer.eventNode},
+		}
+	}
 }
 
 // Schedules an event to be invoked at the current Timer Wheel's time
