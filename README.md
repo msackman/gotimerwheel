@@ -6,3 +6,5 @@ This was inspired by
 blog post on hierarchical timer wheels. However, other than reading
 his blog post, I never read his code. Nevertheless, licensed under MIT
 just as is his C++ version.
+
+[Go Docs](https://godoc.org/github.com/msackman/gotimerwheel) are available.
