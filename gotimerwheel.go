@@ -171,6 +171,19 @@ func (tw *TimerWheel) Length() int {
 	return count
 }
 
+// O(1) test on Timer Wheel having scheduled events
+func (tw *TimerWheel) IsEmpty() bool {
+	if tw.next != nil {
+		return false
+	}
+	for _, enContainer := range tw.ring[tw.ringIdx:] {
+		if enContainer.eventNode != nil {
+			return false
+		}
+	}
+	return true
+}
+
 func (tw *TimerWheel) ensureNext() {
 	if tw.next == nil {
 		ringWidth := time.Duration(tw.bucketSize * ringLength)
@@ -194,7 +207,7 @@ func (tw *TimerWheel) fetchFromNext() {
 		}
 		next.ringIdx++
 		next.now = next.now.Add(next.bucketSize)
-		if next.Length() == 0 {
+		if next.IsEmpty() {
 			tw.next = nil
 		} else if next.ringIdx == ringLength {
 			next.fetchFromNext()
