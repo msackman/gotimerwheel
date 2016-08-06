@@ -52,6 +52,36 @@ func NewTimerWheel(startAt time.Time, bucketSize time.Duration) *TimerWheel {
 	}
 }
 
+// Returns the Timer Wheel's current time.
+func (tw *TimerWheel) Now() time.Time {
+	return tw.now
+}
+
+// Returns the number of scheduled events in the Timer Wheel.
+func (tw *TimerWheel) Length() int {
+	if tw == nil {
+		return 0
+	}
+	count := 0
+	for _, enContainer := range tw.ring[tw.ringIdx:] {
+		count += enContainer.length()
+	}
+	return count + tw.next.Length()
+}
+
+// O(1) test on Timer Wheel having scheduled events
+func (tw *TimerWheel) IsEmpty() bool {
+	if tw.next != nil {
+		return false
+	}
+	for _, enContainer := range tw.ring[tw.ringIdx:] {
+		if enContainer.eventNode != nil {
+			return false
+		}
+	}
+	return true
+}
+
 // Schedules an event to be invoked at the indicated time. If that
 // time is in the past of the Timer Wheel's current time then the
 // ScheduledInPast error is returned.
@@ -71,6 +101,12 @@ func (tw *TimerWheel) ScheduleEventAt(at time.Time, e Event) error {
 	return nil
 }
 
+// Schedules an event to be invoked at the current Timer Wheel's time
+// plus the supplied duration.
+func (tw *TimerWheel) ScheduleEventIn(in time.Duration, e Event) error {
+	return tw.ScheduleEventAt(tw.now.Add(in), e)
+}
+
 func (tw *TimerWheel) scheduleEventAt(at time.Time, e Event) {
 	idx := int((at.Sub(tw.start)) / tw.bucketSize)
 	if idx >= ringLength {
@@ -86,19 +122,6 @@ func (tw *TimerWheel) scheduleEventAt(at time.Time, e Event) {
 			next: eventNodeContainer{eventNode: enContainer.eventNode},
 		}
 	}
-}
-
-// Schedules an event to be invoked at the current Timer Wheel's time
-// plus the supplied duration.
-func (tw *TimerWheel) ScheduleEventIn(in time.Duration, e Event) error {
-	return tw.ScheduleEventAt(tw.now.Add(in), e)
-}
-
-func (tw *TimerWheel) addEvent(event *eventNode) {
-	event.next.eventNode = nil
-	idx := int(event.at.Sub(tw.start) / tw.bucketSize)
-	enContainer := &(tw.ring[idx])
-	enContainer.addEvent(event)
 }
 
 // Advances the Timer Wheel's current time to the indicated time. Any
@@ -156,37 +179,6 @@ func (tw *TimerWheel) AdvanceBy(interval time.Duration, limit int) {
 	tw.AdvanceTo(tw.now.Add(interval), limit)
 }
 
-// Returns the Timer Wheel's current time.
-func (tw *TimerWheel) Now() time.Time {
-	return tw.now
-}
-
-// Returns the number of scheduled events in the Timer Wheel.
-func (tw *TimerWheel) Length() int {
-	if tw == nil {
-		return 0
-	}
-	count := 0
-	for _, enContainer := range tw.ring[tw.ringIdx:] {
-		count += enContainer.length()
-	}
-	count += tw.next.Length()
-	return count
-}
-
-// O(1) test on Timer Wheel having scheduled events
-func (tw *TimerWheel) IsEmpty() bool {
-	if tw.next != nil {
-		return false
-	}
-	for _, enContainer := range tw.ring[tw.ringIdx:] {
-		if enContainer.eventNode != nil {
-			return false
-		}
-	}
-	return true
-}
-
 func (tw *TimerWheel) ensureNext() {
 	if tw.next == nil {
 		ringWidth := time.Duration(tw.bucketSize * ringLength)
@@ -216,6 +208,13 @@ func (tw *TimerWheel) fetchFromNext() {
 			next.fetchFromNext()
 		}
 	}
+}
+
+func (tw *TimerWheel) addEvent(event *eventNode) {
+	event.next.eventNode = nil
+	idx := int(event.at.Sub(tw.start) / tw.bucketSize)
+	enContainer := &(tw.ring[idx])
+	enContainer.addEvent(event)
 }
 
 func (tw *TimerWheel) String() string {
