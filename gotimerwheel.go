@@ -56,7 +56,7 @@ func NewTimerWheel(startAt time.Time, bucketSize time.Duration) *TimerWheel {
 // time is in the past of the Timer Wheel's current time then the
 // ScheduledInPast error is returned.
 func (tw *TimerWheel) ScheduleEventAt(at time.Time, e Event) error {
-	if !tw.now.Before(at) {
+	if at.Before(tw.now) {
 		return ScheduledInPast
 	}
 	idx := int((at.Sub(tw.start)) / tw.bucketSize)
@@ -112,6 +112,9 @@ func (tw *TimerWheel) addEvent(event *eventNode) {
 // Wheel's current time is set to the time of the most recently
 // invoked event. Returns the number of events invoked.
 func (tw *TimerWheel) AdvanceTo(now time.Time, limit int) int {
+	if now.Before(tw.now) {
+		return 0
+	}
 	execCount := 0
 	limited := limit > 0
 	bucketStart := tw.start.Add(time.Duration(tw.ringIdx) * tw.bucketSize)
