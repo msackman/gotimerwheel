@@ -84,7 +84,9 @@ func (tw *TimerWheel) IsEmpty() bool {
 
 // Schedules an event to be invoked at the indicated time. If that
 // time is in the past of the Timer Wheel's current time then the
-// ScheduledInPast error is returned.
+// ScheduledInPast error is returned. The event is never invoked at
+// this point, even if the event is scheduled for the exact same time
+// as the Timer Wheel's current time (though it is enqueued).
 func (tw *TimerWheel) ScheduleEventAt(at time.Time, e Event) error {
 	if at.Before(tw.now) {
 		return ScheduledInPast
