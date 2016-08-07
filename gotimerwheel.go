@@ -140,37 +140,38 @@ func (tw *TimerWheel) AdvanceTo(now time.Time, limit int) int {
 	if now.Before(tw.now) {
 		return 0
 	}
+	tw.now = now
 	execCount := 0
 	limited := limit > 0
 	bucketStart := tw.start.Add(time.Duration(tw.ringIdx) * tw.bucketSize)
-	for !now.Before(tw.now) {
+	if now.Before(bucketStart) {
+		return 0
+	}
+	for {
 		enContainer := &(tw.ring[tw.ringIdx])
 		event := enContainer.eventNode
-		for event != nil && !now.Before(*event.at) {
-			if limited && limit == execCount {
-				break
-			}
-			event.fun(&now)
-			event = event.next.eventNode
+		for ; event != nil && !now.Before(*event.at) && (!limited || execCount < limit); event = event.next.eventNode {
+			enContainer.eventNode = event.next.eventNode
 			execCount++
+			event.fun(&now)
 		}
-		enContainer.eventNode = event
 		if event == nil {
 			bucketStart = bucketStart.Add(tw.bucketSize)
 			if !now.Before(bucketStart) {
 				tw.ringIdx++
-				tw.now = bucketStart
 				if tw.ringIdx == ringLength {
 					tw.fetchFromNext()
 				}
-				continue
+			} else {
+				break
 			}
-		} else if limited && limit == execCount {
-			tw.now = *event.at
+		} else {
+			if limited && limit == execCount {
+				tw.now = *event.at
+			}
+			break
 		}
-		break
 	}
-	tw.now = now
 	return execCount
 }
 
